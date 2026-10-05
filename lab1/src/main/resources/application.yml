@@ -1,0 +1,27 @@
+spring:
+  application:
+    name: delivery-review-analysis
+
+server:
+  port: 8080
+
+llm:
+  active-provider: internal            # переключение провайдера - правка одной строки, без изменения кода
+  fallback-provider: ${LLM_FALLBACK_PROVIDER:}   # резервный провайдер при сбое активного; пусто = выключено
+  providers:
+    openai:
+      base-url: ${OPENAI_BASE_URL:https://api.openai.com}
+      api-key: ${OPENAI_API_KEY:}      # секрет ТОЛЬКО из переменной окружения, значение по умолчанию пустое
+      model: ${OPENAI_MODEL:gpt-4o-mini}
+      timeout: 5s                      # read-timeout HTTP-клиента (см. AppConfig)
+      retries: 2
+    internal:
+      base-url: ${INTERNAL_LLM_URL:http://internal-llm.local}   # у заглушки сетевых вызовов нет
+      timeout: 10s
+      retries: 1
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, metrics, prometheus
