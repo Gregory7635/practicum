@@ -7,6 +7,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.Duration;
+import java.util.Objects;
 
 @Configuration
 @EnableConfigurationProperties(LlmProperties.class)
@@ -17,21 +18,23 @@ public class AppConfig {
     /**
      * RestTemplate с явными timeout'ами (без них "зависший" провайдер держал бы поток бесконечно).
      * connectTimeout - сколько ждать установления соединения;
-     * readTimeout - сколько ждать ответа; берётся из llm.providers.openai.timeout (application.yml),
-     * а если там не задано - используется значение по умолчанию.
+     * readTimeout - сколько ждать ответа; RestTemplate общий для всех внешних провайдеров, поэтому берётся
+     * наибольший timeout из llm.providers.*.timeout (application.yml): бесплатной модели нужно больше времени,
+     * чем OpenAI. Если нигде не задано - используется значение по умолчанию.
      */
     @Bean
     public RestTemplate restTemplate(RestTemplateBuilder builder, LlmProperties properties) {
         Duration readTimeout = DEFAULT_READ_TIMEOUT;
         if (properties.getProviders() != null) {
-            LlmProperties.ProviderConfig openai = properties.getProviders().get("openai");
-            if (openai != null && openai.getTimeout() != null) {
-                readTimeout = openai.getTimeout();
-            }
+            readTimeout = properties.getProviders().values().stream()
+                    .map(LlmProperties.ProviderConfig::getTimeout)
+                    .filter(Objects::nonNull)
+                    .max(Duration::compareTo)
+                    .orElse(DEFAULT_READ_TIMEOUT);
         }
         return builder
-                .connectTimeout(Duration.ofSeconds(3))
-                .readTimeout(readTimeout)
+                .setConnectTimeout(Duration.ofSeconds(3))
+                .setReadTimeout(readTimeout)
                 .build();
     }
 }

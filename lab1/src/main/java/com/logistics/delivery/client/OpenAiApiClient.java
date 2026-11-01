@@ -15,7 +15,8 @@ import java.util.Map;
 
 /**
  * Client-layer: единственное место в приложении, откуда выполняется
- * реальный HTTP-вызов к внешнему OpenAI API (Chat Completions).
+ * реальный HTTP-вызов к внешнему OpenAI API (Chat Completions) и к
+ * OpenAI-совместимым API (например, бесплатному Pollinations для провайдера free).
  *
  * Правило проекта: любой внешний вызов идёт ТОЛЬКО отсюда, а не из
  * Controller, Service или напрямую из LlmClient-реализации.
@@ -36,14 +37,18 @@ public class OpenAiApiClient {
      * не логируются, в лог попадает только факт вызова и его статус.
      */
     public String complete(LlmProperties.ProviderConfig config, String prompt, int maxTokens, double temperature) {
+        boolean hasKey = config.getApiKey() != null && !config.getApiKey().isBlank();
         // Без ключа вызов заведомо бессмысленен - не тратим попытки, сразу сообщаем AiGateway об ошибке конфигурации.
-        if (config.getApiKey() == null || config.getApiKey().isBlank()) {
+        // Исключение - бесплатные OpenAI-совместимые провайдеры (api-key-required: false), им ключ не нужен.
+        if (!hasKey && config.isApiKeyRequired()) {
             throw new IllegalStateException("OpenAI API key is not configured (env OPENAI_API_KEY)");
         }
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.setBearerAuth(config.getApiKey()); // ключ пришёл из переменной окружения, не хардкод
+        if (hasKey) {
+            headers.setBearerAuth(config.getApiKey()); // ключ пришёл из переменной окружения, не хардкод
+        }
 
         // Тело запроса в формате OpenAI Chat Completions.
         Map<String, Object> body = Map.of(
@@ -64,7 +69,7 @@ public class OpenAiApiClient {
             try {
                 log.info("Calling OpenAI provider, attempt={}", attempts);
                 Map<?, ?> response = restTemplate.postForObject(
-                        config.getBaseUrl() + "/v1/chat/completions",
+                        config.getBaseUrl() + config.getChatPath(),
                         entity,
                         Map.class
                 );

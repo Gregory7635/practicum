@@ -55,6 +55,8 @@ public class LlmProperties {
         private String model = "gpt-4o-mini";  // имя модели, которое передаётся во внешний API
         private Duration timeout = Duration.ofSeconds(5); // сколько ждать ответа, прежде чем считать вызов неудачным
         private int retries = 1;              // сколько раз повторить запрос при сбое, прежде чем сдаться
+        private String chatPath = "/v1/chat/completions"; // путь Chat Completions относительно base-url (у OpenAI-совместимых API может отличаться)
+        private boolean apiKeyRequired = true;            // false - провайдер работает без ключа (бесплатный free-провайдер)
 
         public String getBaseUrl() {
             return baseUrl;
@@ -94,6 +96,22 @@ public class LlmProperties {
 
         public void setRetries(int retries) {
             this.retries = retries;
+        }
+
+        public String getChatPath() {
+            return chatPath;
+        }
+
+        public void setChatPath(String chatPath) {
+            this.chatPath = chatPath;
+        }
+
+        public boolean isApiKeyRequired() {
+            return apiKeyRequired;
+        }
+
+        public void setApiKeyRequired(boolean apiKeyRequired) {
+            this.apiKeyRequired = apiKeyRequired;
         }
     }
 }

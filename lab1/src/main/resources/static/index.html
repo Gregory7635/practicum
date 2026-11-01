@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Анализ отзывов о доставке</title>
+    <style>
+        body { font-family: system-ui, sans-serif; max-width: 720px; margin: 24px auto; padding: 0 16px; color: #222; }
+        label { display: block; margin-top: 12px; font-weight: 600; }
+        input, textarea, select { width: 100%; box-sizing: border-box; padding: 8px; font: inherit; margin-top: 4px; }
+        textarea { min-height: 110px; }
+        button { margin-top: 16px; padding: 10px 20px; font: inherit; cursor: pointer; }
+        .hint { color: #666; font-size: 14px; }
+        .error { color: #b00020; }
+        table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+        th, td { border: 1px solid #ccc; padding: 6px 8px; text-align: left; }
+        .HIGH { color: #b00020; font-weight: 600; } .MEDIUM { color: #b36b00; } .LOW { color: #2e7d32; }
+        #result { margin-top: 24px; }
+    </style>
+</head>
+<body>
+<h1>Анализ отзыва о доставке</h1>
+<p class="hint">Отзыв отправляется в нейросеть, она выделяет проблемы доставки.
+    Бесплатная нейросеть отвечает 10–20 секунд и принимает примерно 1 запрос в 45 секунд —
+    если чаще, ответит заглушка <code>[internal-stub]</code>.</p>
+
+<form id="form">
+    <label>Номер заказа
+        <input id="orderId" value="ORD-123" required>
+    </label>
+    <label>Текст отзыва
+        <textarea id="reviewText" required>Курьер приехал на 3 дня позже, коробка помята, а ещё он нагрубил мне по телефону.</textarea>
+    </label>
+    <label>Оценка (1–5)
+        <select id="rating">
+            <option value="">не указана</option>
+            <option>1</option><option selected>2</option><option>3</option><option>4</option><option>5</option>
+        </select>
+    </label>
+    <button id="submit" type="submit">Проанализировать</button>
+</form>
+
+<div id="result"></div>
+
+<script>
+    const form = document.getElementById('form');
+    const result = document.getElementById('result');
+    const button = document.getElementById('submit');
+
+    const escape = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
+
+    form.addEventListener('submit', async e => {
+        e.preventDefault();
+        const rating = document.getElementById('rating').value;
+        const body = {
+            orderId: document.getElementById('orderId').value,
+            reviewText: document.getElementById('reviewText').value,
+            rating: rating ? Number(rating) : null
+        };
+        button.disabled = true;
+        result.innerHTML = '<p>Нейросеть думает…</p>';
+        try {
+            const resp = await fetch('/api/delivery-reviews/analyze', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(body)
+            });
+            const data = await resp.json();
+            if (!resp.ok) {
+                result.innerHTML = `<p class="error">Ошибка ${resp.status}: ${escape(data.message)}</p>`;
+                return;
+            }
+            const rows = data.problems.map(p =>
+                `<tr><td>${escape(p.category)}</td><td>${escape(p.description)}</td>` +
+                `<td class="${escape(p.severity)}">${escape(p.severity)}</td></tr>`).join('');
+            result.innerHTML =
+                `<h2>Заказ ${escape(data.orderId)}</h2>` +
+                `<p><b>Резюме:</b> ${escape(data.summary)}</p>` +
+                (rows
+                    ? `<table><tr><th>Категория</th><th>Описание</th><th>Серьёзность</th></tr>${rows}</table>`
+                    : '<p>Проблем не найдено.</p>');
+        } catch (err) {
+            result.innerHTML = `<p class="error">Сервер недоступен: ${escape(err.message)}</p>`;
+        } finally {
+            button.disabled = false;
+        }
+    });
+</script>
+</body>
+</html>

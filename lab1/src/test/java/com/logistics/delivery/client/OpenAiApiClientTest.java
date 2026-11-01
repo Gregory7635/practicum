@@ -84,4 +84,18 @@ class OpenAiApiClientTest {
         assertThrows(IllegalStateException.class, () -> client.complete(config, "prompt", 100, 0.2));
         server.verify(); // ни одного HTTP-запроса не ожидалось и не было
     }
+
+    @Test
+    void complete_shouldCallCustomPathWithoutAuthorization_whenApiKeyIsNotRequired() {
+        // так настроен бесплатный провайдер free (Pollinations): свой путь и без ключа
+        config.setApiKey("");
+        config.setApiKeyRequired(false);
+        config.setChatPath("/openai");
+        server.expect(requestTo("http://openai.test/openai"))
+                .andExpect(request -> assertThat(request.getHeaders().containsKey("Authorization")).isFalse())
+                .andRespond(withSuccess(OK_BODY, MediaType.APPLICATION_JSON));
+
+        assertThat(client.complete(config, "prompt", 100, 0.2)).isEqualTo("hello");
+        server.verify();
+    }
 }

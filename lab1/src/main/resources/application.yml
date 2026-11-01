@@ -6,9 +6,16 @@ server:
   port: 8080
 
 llm:
-  active-provider: internal            # переключение провайдера - правка одной строки, без изменения кода
-  fallback-provider: ${LLM_FALLBACK_PROVIDER:}   # резервный провайдер при сбое активного; пусто = выключено
+  active-provider: ${LLM_ACTIVE_PROVIDER:free}   # free (бесплатная нейросеть) | openai | internal (заглушка)
+  fallback-provider: ${LLM_FALLBACK_PROVIDER:internal}   # резервный провайдер при сбое активного; пусто = выключено
   providers:
+    free:                              # бесплатная OpenAI-совместимая нейросеть Pollinations, ключ не нужен
+      base-url: ${FREE_LLM_URL:https://text.pollinations.ai}
+      chat-path: /openai
+      api-key-required: false
+      model: ${FREE_LLM_MODEL:openai}
+      timeout: 60s                     # бесплатная модель отвечает 10-20 с
+      retries: 0                       # при лимите (1 ответ / 45 с) повтор бесполезен - сразу на резервного
     openai:
       base-url: ${OPENAI_BASE_URL:https://api.openai.com}
       api-key: ${OPENAI_API_KEY:}      # секрет ТОЛЬКО из переменной окружения, значение по умолчанию пустое
